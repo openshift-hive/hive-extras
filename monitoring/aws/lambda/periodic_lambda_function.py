@@ -12,7 +12,12 @@ def lambda_handler(event, context):
     for region in event["regions"]:
         ec2client = boto3.client('ec2', region)
 
-        response = ec2client.describe_instances()
+        try:
+            response = ec2client.describe_instances()
+        except Exception as e:
+            print("Error fetching instances from region " + region)
+            print(e)
+            continue
         
         running_instances[region] = []
 
@@ -38,6 +43,9 @@ def build_instance_email_text(instances):
     buf = io.StringIO()
 
     for region in instances.keys():
+        if len(instances[region]) == 0:
+            continue
+
         buf.write("Region: {}\n".format(region))
         for instance in instances[region]:
             buf.write("{}\n".format(instance))
