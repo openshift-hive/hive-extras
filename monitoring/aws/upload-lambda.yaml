@@ -70,6 +70,10 @@
       state: absent
       path: lambda.zip
 
+  - name: wait for lambda to settle so we can schedule against the latest version
+    pause:
+      seconds: 10
+
   - name: set event schedule
     cloudwatchevent_rule:
       name: "{{ cloudwatch_rule_name }}"
