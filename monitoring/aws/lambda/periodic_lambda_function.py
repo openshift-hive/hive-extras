@@ -26,7 +26,7 @@ def lambda_handler(event, context):
                 if instance["State"]["Name"] == "running":
                     for tag in instance["Tags"]:
                         if tag["Key"] == "Name":
-                            if tag["Value"].startswith("team-5lfnj"):
+                            if tag["Value"].startswith("team-czcpt"):
                                 break
                             running_instances[region].append(tag["Value"])
 
