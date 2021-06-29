@@ -8,19 +8,13 @@
   vars:
     iam_role_name: periodicHiveLambdaRole
     lambda_function_name: periodicHiveLambdaFunction
-    default_region: us-east-1
     cloudwatch_rule_name: PeriodicHiveLambdaSchedule
     cloudwatch_rule_target_event_id: PeriodicHiveID
   tasks:
-  - name: ensure recipients provided
-    fail:
-      msg: "need to provided json formatted list of email recipients in variable named 'recipients'"
-    when: recipients is undefined
-
-  - name: ensure source email provided
-    fail:
-      msg: "need to provide the source/From email address in variable named 'fromemail'"
-    when: fromemail is undefined
+  - name: load install vars
+    include_vars:
+      file: install-vars.json
+      name: install_vars
 
   - name: create lambda role
     iam_role:
@@ -57,7 +51,7 @@
       runtime: python3.8
       role: "{{ iam_role.iam_role.role_name }}"
       handler: periodic_lambda_function.lambda_handler
-      region: "{{ default_region }}"
+      region: "{{ install_vars.default_region }}"
       timeout: 30
     register: lambda_func
 
@@ -79,14 +73,20 @@
       name: "{{ cloudwatch_rule_name }}"
       state: present
       #state: disabled
-      region: "{{ default_region }}"
+      region: "{{ install_vars.default_region }}"
       description: Run Hive Lambda Function on weekdays
       schedule_expression: "cron(0 22 ? * MON-FRI *)"
       #schedule_expression: "cron(0/10 * * * ? *)"
       targets:
         - id: "{{ cloudwatch_rule_target_event_id }}"
           arn: "{{ lambda_func.configuration.function_arn }}"
-          input: ' {"regions": ["us-east-1", "us-east-2", "us-west-1", "us-west-2", "ap-east-1", "ap-south-1", "ap-northeast-2", "ap-southeast-1", "ap-southeast-2", "ap-northeast-1", "ca-central-1", "eu-central-1", "eu-west-1", "eu-west-2", "eu-west-3", "eu-north-1", "me-south-1", "sa-east-1"], "emailregion": "{{ default_region }}", "recipients": {{ recipients | to_json }} , "fromemail": "{{ fromemail}}" } '
+          input: '
+            {
+              "regions": {{ install_vars.regions | to_json }},
+              "emailregion": "{{ install_vars.default_region }}",
+              "recipients": {{ install_vars.recipients | map("regex_replace", "$", "@" + install_vars.email_domain) | list | to_json }},
+              "fromemail": "{{ install_vars.fromemail + "@" + install_vars.email_domain }}"
+            } '
     register: event_info
 
   - debug:
@@ -97,7 +97,7 @@
     lambda_policy:
       state: present
       statement_id: lambda-cloudwatch-event-rule
-      region: "{{ default_region }}"
+      region: "{{ install_vars.default_region }}"
       function_name: "{{ lambda_func.configuration.function_name }}"
       action: lambda:InvokeFunction
       principal: events.amazonaws.com
@@ -108,4 +108,4 @@
       log_group_name: "/aws/lambda/{{ lambda_function_name }}"
       state: present
       retention: 14
-      region: "{{ default_region }}"
+      region: "{{ install_vars.default_region }}"

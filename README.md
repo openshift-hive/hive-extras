@@ -29,13 +29,11 @@ There are currently two setups:
   Install via `python3 -m pip install --user -r monitoring/aws/requirements.txt`
 - Authentication to the Hive team's AWS account, e.g. via a credentials file or environment variables.
 
-To install a playbook, run a command like:
+To install a playbook, you can simply execute its yaml file, e.g.:
 
 ```
-ansible-playbook -e '{"recipients": ["hive-team@redhat.com"], "fromemail": "openshift-hive-team@redhat.com"}' ./monitoring/aws/upload-ci-monitor-lambda.yaml
+./monitoring/aws/upload-ci-monitor-lambda.yaml
 ```
-
-The JSON string passed to `-e` will vary depending on what's required by the playbook being run.
 
 #### Live Testing
 
