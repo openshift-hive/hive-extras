@@ -1,8 +1,4 @@
 #!/usr/bin/env -S ansible-playbook
-#
-# Provide a JSON-formated list of recipients and what email to use in the From field (for bounce-back emails).
-# --extra-vars '{"recipeints": ["email@example.com", "email2@example.com"], "fromemail": "reply@example.com"}'
-#
 ---
 - hosts: localhost
   vars:

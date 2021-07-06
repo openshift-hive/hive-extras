@@ -28,6 +28,7 @@ There are currently two setups:
 - Some modules, maintained in [requirements.txt](monitoring/aws/requirements.txt).
   Install via `python3 -m pip install --user -r monitoring/aws/requirements.txt`
 - Authentication to the Hive team's AWS account, e.g. via a credentials file or environment variables.
+  - Your AWS user must be a member of the `lambda-admin` group, or have equivalent permissions.
 
 To install a playbook, you can simply execute its yaml file, e.g.:
 
