@@ -20,7 +20,15 @@ def parse_vpc(vpc):
     ret['datetime'] = datetime.datetime.utcfromtimestamp(int(hex_stamp, 16))
     ret['age'] = NOW - ret['datetime']
     ret['pr'] = int(hex_pr, 16)
+    ret['owned'] = get_owned_string(vpc)
     return ret
+
+
+def get_owned_string(o):
+    for tag in o.get('Tags', []):
+        if tag['Value'] == 'owned':
+            return f"{tag['Key']}=owned"
+    return None
 
 
 def get_tag_value(o, key=None):
@@ -85,6 +93,8 @@ def build_report_text(vpcs_by_region, debug=False):
                 buf.write(f"    Age: {int(h)}h{int(m)}m\n")
                 # NOTE: This won't dtrt for prow rehearsals :)
                 buf.write(f"    PR: https://github.com/openshift/hive/pull/{parsed['pr']}\n")
+                # You'll need to be logged into the right account for this to work
+                buf.write(f"    Cleanup (if you're lucky): hiveutil aws-tag-deprovision {parsed['owned']}\n")
 
         buf.write("\n")
         
