@@ -1,5 +1,5 @@
 #!/usr/bin/env /usr/bin/python
- 
+
 import argparse
 import importlib
 import json
@@ -8,30 +8,32 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import yaml
 
-GITHUB_CLIENT_USERNAME = "operator-framework"
-GITHUB_CLIENT_REPONAME = "community-operators"
+GITHUB_USER = "dgoodwin"
 
-COMMUNITY_OPERATOR_MAIN_BRANCH = 'master'
-COMMUNITY_OPERATOR_DIR = 'community-operators/hive-operator'
-UPSTREAM_COMMUNITY_OPERATOR_DIR = 'upstream-community-operators/hive-operator'
+GITHUB_CLIENT_USERNAME = "redhat-openshift-ecosystem"
+GITHUB_CLIENT_REPONAME = "community-operators-prod"
+
+COMMUNITY_OPERATOR_MAIN_BRANCH = 'main'
+
+# Hive dir within both:
+# https://github.com/redhat-openshift-ecosystem/community-operators-prod
+# https://github.com/k8s-operatorhub/community-operators
+HIVE_SUB_DIR = 'operators/hive-operator'
 
 SUBPROCESS_REDIRECT = subprocess.DEVNULL
 
 def get_params():
     parser = argparse.ArgumentParser(description='Publish new hive version to operator hub.')
     parser.add_argument('--new-version', help='New hive release (eg 1.0.14)', required=True)
-    parser.add_argument('--repo-dir', help='Path to root of repo to commit operator bundle to', required=True)
     parser.add_argument('--bundle-dir', help='Path to directory containing new operator bundle', required=True)
     parser.add_argument('--verbose', help='Show more details while running', action='store_true', default=False)
-    
+    parser.add_argument('--dry-run', help='Test run that skips pushing branches and submitting PRs', action='store_true', default=False)
+
     args = parser.parse_args()
 
-    repo_dir = args.repo_dir
-    if repo_dir == None:
-        repo_dir = os.getcwd()
-    
     if args.verbose:
         global SUBPROCESS_REDIRECT
         SUBPROCESS_REDIRECT = None
@@ -39,42 +41,62 @@ def get_params():
 
 def main():
     params = get_params()
-    
+
+    with tempfile.TemporaryDirectory(prefix="operatorhub-push") as work_dir:
+
+        # redhat-openshift-ecosystem/community-operators-prod
+        open_pr(work_dir, "git@github.com:%s/community-operators-prod.git" % GITHUB_USER, "community-operators-prod", GITHUB_USER, params.bundle_dir, HIVE_SUB_DIR, params.new_version, params.dry_run)
+
+        # k8s-operatorhub/community-operators
+        open_pr(work_dir, "git@github.com:%s/community-operators.git" % GITHUB_USER, "community-operators", GITHUB_USER, params.bundle_dir, HIVE_SUB_DIR, params.new_version, params.dry_run)
+
+
+def open_pr(work_dir, fork_repo, dir_name, gh_username, bundle_source_dir, bundle_target_dir_name, new_version, dry_run):
+
+    os.chdir(work_dir)
+
+    print()
+    print()
+    print("Cloning %s" % fork_repo)
+    cmd = ("git clone %s" % fork_repo).split()
+    resp = subprocess.run(cmd, stdout=SUBPROCESS_REDIRECT)
+    if resp.returncode != 0:
+        print("failed to clone repo")
+        sys.exit(1)
+
     # get to the right place on the filesystem
-    community_operator_repo_full_path = os.path.abspath(params.repo_dir)
-    os.chdir(community_operator_repo_full_path)
+    repo_full_path = os.path.join(work_dir, dir_name)
+    print("Working in %s" % repo_full_path)
+    os.chdir(repo_full_path)
 
     # get the local user's github username
-    cmd = "git ls-remote --get-url origin".split()
-    resp = subprocess.run(cmd, capture_output=True)
-    personal_gh_user, _ = get_github_repo_data(resp.stdout.decode('utf-8'))
+    # cmd = "git ls-remote --get-url origin".split()
+    # resp = subprocess.run(cmd, capture_output=True)
+    # GITHUB_USER, _ = get_github_repo_data(resp.stdout.decode('utf-8'))
 
-    print("Fetching latest upstream") 
+    cmd = "git remote add upstream git@github.com:redhat-openshift-ecosystem/community-operators-prod.git".split()
+    resp = subprocess.run(cmd, stdout=SUBPROCESS_REDIRECT)
+    if resp.returncode != 0:
+        print("failed to add upstream remote")
+        sys.exit(1)
+
+    print("Fetching latest upstream")
     cmd = "git fetch upstream".split()
     resp = subprocess.run(cmd, stdout=SUBPROCESS_REDIRECT)
     if resp.returncode != 0:
         print("failed to fetch upstream")
         sys.exit(1)
 
-    print("Reset to upstream/master")
-    cmd = "git reset upstream/master".split()
+    print("Reset to upstream/main")
+    cmd = "git reset upstream/main".split()
     resp = subprocess.run(cmd, stdout=SUBPROCESS_REDIRECT)
     if resp.returncode != 0:
-        print("Failed to set upstream/master")
+        print("Failed to set upstream/main")
         sys.exit(1)
 
-    # community-operators
-    branch_name = 'add-community-hive-{}'.format(params.new_version)
-    pr_title = "Hive community operator {}".format(params.new_version)
-    open_pr(pr_title, personal_gh_user, branch_name, community_operator_repo_full_path, params.bundle_dir, COMMUNITY_OPERATOR_DIR, params.new_version)
 
-    # upstream-community-operators
-    branch_name = 'add-upstream-community-hive-{}'.format(params.new_version)
-    pr_title = "Hive upstream community operator {}".format(params.new_version)
-    open_pr(pr_title, personal_gh_user, branch_name, community_operator_repo_full_path, params.bundle_dir, UPSTREAM_COMMUNITY_OPERATOR_DIR, params.new_version)
-
-
-def open_pr(pr_title, gh_username, new_branch_name, repo_full_path, bundle_source_dir, bundle_target_dir_name, new_version):
+    branch_name = 'update-hive-{}'.format(new_version)
+    pr_title = "Update Hive community operator to {}".format(new_version)
     print("Starting {}".format(pr_title))
 
     # Starting branch
@@ -84,19 +106,21 @@ def open_pr(pr_title, gh_username, new_branch_name, repo_full_path, bundle_sourc
         print("Failed to switch to {} branch".format(COMMUNITY_OPERATOR_MAIN_BRANCH))
         sys.exit(1)
 
-    print("Create branch {}".format(new_branch_name))
-    cmd = "git checkout -b {}".format(new_branch_name).split()
+    print("Create branch {}".format(branch_name))
+    cmd = "git checkout -b {}".format(branch_name).split()
     resp = subprocess.run(cmd, stdout=SUBPROCESS_REDIRECT, stderr=SUBPROCESS_REDIRECT)
     if resp.returncode != 0:
-        print("Faled to checkout branch {}".format(new_branch_name))
+        print("Failed to checkout branch {}".format(branch_name))
         sys.exit(1)
 
     # copy bundle directory
+    print("Copying bundle directory")
     bundle_files = os.path.join(bundle_source_dir, new_version)
     hive_dir = os.path.join(repo_full_path, bundle_target_dir_name, new_version)
     shutil.copytree(bundle_files, hive_dir)
 
     # update bundle manifest
+    print("Updating bundle manfiest")
     bundle_manifests_file = os.path.join(repo_full_path, bundle_target_dir_name, "hive.package.yaml")
     bundle = {}
     with open(bundle_manifests_file, 'r') as a_file:
@@ -116,35 +140,42 @@ def open_pr(pr_title, gh_username, new_branch_name, repo_full_path, bundle_sourc
         yaml.dump(bundle, outfile, default_flow_style=False)
 
     # commit files
-    cmd = "git add community-operators/hive-operator".split()
+    print("Adding file")
+    cmd = ("git add %s" % HIVE_SUB_DIR).split()
     subprocess.run(cmd)
 
     print("Commiting {}".format(pr_title))
     cmd = 'git commit --signoff '.split()
     cmd.append('--message="{}"'.format(pr_title))
     subprocess.run(cmd, stdout=SUBPROCESS_REDIRECT)
+    print()
 
-    print("Pushing branch {}".format(new_branch_name))
-    cmd = 'git push origin {} --force'.format(new_branch_name).split()
-    resp = subprocess.run(cmd, stdout=SUBPROCESS_REDIRECT, stderr=SUBPROCESS_REDIRECT)
-    if resp.returncode != 0:
-        print("failed to push branch to origin")
-        sys.exit(1)
+    if not dry_run:
+        print("Pushing branch {}".format(branch_name))
+        cmd = 'git push origin {} --force'.format(branch_name).split()
+        resp = subprocess.run(cmd, stdout=SUBPROCESS_REDIRECT, stderr=SUBPROCESS_REDIRECT)
+        if resp.returncode != 0:
+            print("failed to push branch to origin")
+            sys.exit(1)
 
-    # open PR
-    gh = importlib.import_module('github')
-    client = gh.GitHubClient(GITHUB_CLIENT_USERNAME, GITHUB_CLIENT_REPONAME, "")
+        # open PR
+        gh = importlib.import_module('github')
+        client = gh.GitHubClient(GITHUB_CLIENT_USERNAME, GITHUB_CLIENT_REPONAME, "")
 
-    from_branch = "{}:{}".format(gh_username, new_branch_name)
-    to_branch = COMMUNITY_OPERATOR_MAIN_BRANCH
-    
-    resp = client.create_pr(from_branch, to_branch, pr_title)
-    if resp.status_code != 201: #201 == Created
-        print(resp.text)
-        sys.exit(1)
+        from_branch = "{}:{}".format(gh_username, branch_name)
+        to_branch = COMMUNITY_OPERATOR_MAIN_BRANCH
 
-    json_content = json.loads(resp.content.decode('utf-8'))
-    print("PR opened: {}".format(json_content["html_url"]))
+        resp = client.create_pr(from_branch, to_branch, pr_title)
+        if resp.status_code != 201: #201 == Created
+            print(resp.text)
+            sys.exit(1)
+
+        json_content = json.loads(resp.content.decode('utf-8'))
+        print("PR opened: {}".format(json_content["html_url"]))
+
+    else:
+        print("Skipping branch push due to dry-run")
+    print()
 
 # get_repo_data will take a git remote URL and decode
 # the github username and reponame from the URL
@@ -163,7 +194,7 @@ def get_github_repo_data(repo_url):
     else:
         print("don't know how to unpack repo_url {}".format(repo_url))
         sys.exit(1)
-        
+
     return (user, repo)
 
 if __name__ == "__main__":
