@@ -1,4 +1,15 @@
 #!/usr/bin/env /usr/bin/python
+#
+# Script to publish a Hive operatorhub bundle (generated separately) to both the
+# OpenShift OperatorHub repo (https://github.com/redhat-openshift-ecosystem/community-operators-prod)
+# as well as the Kubernetes OperatorHub repo (https://github.com/k8s-operatorhub/community-operators)
+#
+# The script will clone a fresh copy of each repo in a temporary directory.
+#
+# Example:
+#
+# GITHUB_TOKEN="YOUR-GITHUB-TOKEN" ./publish-operator.py --new-version 1.1.13 --bundle-dir /path/to/bundle --github-user myusername --verbose --dry-run
+#
 
 import argparse
 import importlib
