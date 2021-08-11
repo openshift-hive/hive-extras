@@ -44,13 +44,15 @@ def main():
     with tempfile.TemporaryDirectory(prefix="operatorhub-push") as work_dir:
 
         # redhat-openshift-ecosystem/community-operators-prod
-        open_pr(work_dir, "git@github.com:%s/community-operators-prod.git" % params.github_user, "community-operators-prod", params.github_user, params.bundle_dir, HIVE_SUB_DIR, params.new_version, params.dry_run)
+        open_pr(work_dir, "git@github.com:%s/community-operators-prod.git" % params.github_user, params.github_user, params.bundle_dir, params.new_version, params.dry_run)
 
         # k8s-operatorhub/community-operators
-        open_pr(work_dir, "git@github.com:%s/community-operators.git" % params.github_user, "community-operators", params.github_user, params.bundle_dir, HIVE_SUB_DIR, params.new_version, params.dry_run)
+        open_pr(work_dir, "git@github.com:%s/community-operators.git" % params.github_user, params.github_user, params.bundle_dir, params.new_version, params.dry_run)
 
 
-def open_pr(work_dir, fork_repo, dir_name, gh_username, bundle_source_dir, bundle_target_dir_name, new_version, dry_run):
+def open_pr(work_dir, fork_repo, gh_username, bundle_source_dir, new_version, dry_run):
+
+    dir_name = fork_repo.split('/')[1][:-4]
 
     os.chdir(work_dir)
 
@@ -115,12 +117,12 @@ def open_pr(work_dir, fork_repo, dir_name, gh_username, bundle_source_dir, bundl
     # copy bundle directory
     print("Copying bundle directory")
     bundle_files = os.path.join(bundle_source_dir, new_version)
-    hive_dir = os.path.join(repo_full_path, bundle_target_dir_name, new_version)
+    hive_dir = os.path.join(repo_full_path, HIVE_SUB_DIR, new_version)
     shutil.copytree(bundle_files, hive_dir)
 
     # update bundle manifest
     print("Updating bundle manfiest")
-    bundle_manifests_file = os.path.join(repo_full_path, bundle_target_dir_name, "hive.package.yaml")
+    bundle_manifests_file = os.path.join(repo_full_path, HIVE_SUB_DIR, "hive.package.yaml")
     bundle = {}
     with open(bundle_manifests_file, 'r') as a_file:
         bundle = yaml.load(a_file, Loader=yaml.SafeLoader)
