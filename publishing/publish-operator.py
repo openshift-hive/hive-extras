@@ -156,7 +156,7 @@ def open_pr(work_dir, fork_repo, upstream_repo, gh_username, bundle_source_dir, 
         client = gh.GitHubClient(GITHUB_CLIENT_USERNAME, GITHUB_CLIENT_REPONAME, "")
 
         from_branch = "{}:{}".format(gh_username, branch_name)
-        to_branch = COMMUNITY_OPERATOR_MAIN_BRANCH
+        to_branch = "main"
 
         resp = client.create_pr(from_branch, to_branch, pr_title)
         if resp.status_code != 201: #201 == Created
