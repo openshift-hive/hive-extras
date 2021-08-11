@@ -22,9 +22,6 @@ import sys
 import tempfile
 import yaml
 
-GITHUB_CLIENT_USERNAME = "redhat-openshift-ecosystem"
-GITHUB_CLIENT_REPONAME = "community-operators-prod"
-
 # Hive dir within both:
 # https://github.com/redhat-openshift-ecosystem/community-operators-prod
 # https://github.com/k8s-operatorhub/community-operators
@@ -68,6 +65,9 @@ def main():
 def open_pr(work_dir, fork_repo, upstream_repo, gh_username, bundle_source_dir, new_version, dry_run):
 
     dir_name = fork_repo.split('/')[1][:-4]
+
+    dest_github_org = upstream_repo.split(':')[1].split('/')[0]
+    dest_github_reponame = dir_name
 
     os.chdir(work_dir)
 
@@ -164,7 +164,7 @@ def open_pr(work_dir, fork_repo, upstream_repo, gh_username, bundle_source_dir, 
 
         # open PR
         gh = importlib.import_module('github')
-        client = gh.GitHubClient(GITHUB_CLIENT_USERNAME, GITHUB_CLIENT_REPONAME, "")
+        client = gh.GitHubClient(dest_github_org, dest_github_reponame, "")
 
         from_branch = "{}:{}".format(gh_username, branch_name)
         to_branch = "main"
