@@ -44,10 +44,12 @@ def main():
     with tempfile.TemporaryDirectory(prefix="operatorhub-push") as work_dir:
 
         # redhat-openshift-ecosystem/community-operators-prod
-        open_pr(work_dir, "git@github.com:%s/community-operators-prod.git" % params.github_user, params.github_user, params.bundle_dir, params.new_version, params.dry_run)
+        open_pr(work_dir, "git@github.com:%s/community-operators-prod.git" % params.github_user,
+                params.github_user, params.bundle_dir, params.new_version, params.dry_run)
 
         # k8s-operatorhub/community-operators
-        open_pr(work_dir, "git@github.com:%s/community-operators.git" % params.github_user, params.github_user, params.bundle_dir, params.new_version, params.dry_run)
+        open_pr(work_dir, "git@github.com:%s/community-operators.git" % params.github_user,
+                params.github_user, params.bundle_dir, params.new_version, params.dry_run)
 
 
 def open_pr(work_dir, fork_repo, gh_username, bundle_source_dir, new_version, dry_run):
@@ -69,11 +71,6 @@ def open_pr(work_dir, fork_repo, gh_username, bundle_source_dir, new_version, dr
     repo_full_path = os.path.join(work_dir, dir_name)
     print("Working in %s" % repo_full_path)
     os.chdir(repo_full_path)
-
-    # get the local user's github username
-    cmd = "git ls-remote --get-url origin".split()
-    resp = subprocess.run(cmd, capture_output=True)
-    github_user, _ = get_github_repo_data(resp.stdout.decode('utf-8'))
 
     cmd = "git remote add upstream git@github.com:redhat-openshift-ecosystem/community-operators-prod.git".split()
     resp = subprocess.run(cmd, stdout=SUBPROCESS_REDIRECT)
@@ -177,26 +174,6 @@ def open_pr(work_dir, fork_repo, gh_username, bundle_source_dir, new_version, dr
     else:
         print("Skipping branch push due to dry-run")
     print()
-
-# get_repo_data will take a git remote URL and decode
-# the github username and reponame from the URL
-def get_github_repo_data(repo_url):
-
-    user = ""
-    repo = ""
-
-    if repo_url.startswith("http"):
-        print("implement fetching username/reponame from http url")
-        sys.exit(1)
-    elif repo_url.startswith("git@"): # "git@github.com:USERNAME/REPONAME.git"
-        m = re.search('.*:([-0-9a-zA-Z_]+)/([-0-9a-zA-Z_]+).git', repo_url)
-        user = m.group(1)
-        repo = m.group(2)
-    else:
-        print("don't know how to unpack repo_url {}".format(repo_url))
-        sys.exit(1)
-
-    return (user, repo)
 
 if __name__ == "__main__":
     main()
