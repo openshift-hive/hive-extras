@@ -14,8 +14,6 @@ import yaml
 GITHUB_CLIENT_USERNAME = "redhat-openshift-ecosystem"
 GITHUB_CLIENT_REPONAME = "community-operators-prod"
 
-COMMUNITY_OPERATOR_MAIN_BRANCH = 'main'
-
 # Hive dir within both:
 # https://github.com/redhat-openshift-ecosystem/community-operators-prod
 # https://github.com/k8s-operatorhub/community-operators
@@ -44,15 +42,19 @@ def main():
     with tempfile.TemporaryDirectory(prefix="operatorhub-push") as work_dir:
 
         # redhat-openshift-ecosystem/community-operators-prod
-        open_pr(work_dir, "git@github.com:%s/community-operators-prod.git" % params.github_user,
+        open_pr(work_dir,
+                "git@github.com:%s/community-operators-prod.git" % params.github_user,
+                "git@github.com:redhat-openshift-ecosystem/community-operators-prod.git",
                 params.github_user, params.bundle_dir, params.new_version, params.dry_run)
 
         # k8s-operatorhub/community-operators
-        open_pr(work_dir, "git@github.com:%s/community-operators.git" % params.github_user,
+        open_pr(work_dir,
+                "git@github.com:%s/community-operators.git" % params.github_user,
+                "git@github.com:k8s-operatorhub/community-operators.git",
                 params.github_user, params.bundle_dir, params.new_version, params.dry_run)
 
 
-def open_pr(work_dir, fork_repo, gh_username, bundle_source_dir, new_version, dry_run):
+def open_pr(work_dir, fork_repo, upstream_repo, gh_username, bundle_source_dir, new_version, dry_run):
 
     dir_name = fork_repo.split('/')[1][:-4]
 
@@ -72,7 +74,7 @@ def open_pr(work_dir, fork_repo, gh_username, bundle_source_dir, new_version, dr
     print("Working in %s" % repo_full_path)
     os.chdir(repo_full_path)
 
-    cmd = "git remote add upstream git@github.com:redhat-openshift-ecosystem/community-operators-prod.git".split()
+    cmd = ("git remote add upstream %s" % upstream_repo).split()
     resp = subprocess.run(cmd, stdout=SUBPROCESS_REDIRECT)
     if resp.returncode != 0:
         print("failed to add upstream remote")
@@ -85,24 +87,17 @@ def open_pr(work_dir, fork_repo, gh_username, bundle_source_dir, new_version, dr
         print("failed to fetch upstream")
         sys.exit(1)
 
-    print("Reset to upstream/main")
-    cmd = "git reset upstream/main".split()
-    resp = subprocess.run(cmd, stdout=SUBPROCESS_REDIRECT)
+    # Starting branch
+    print("Checkout latest upstream/main")
+    cmd = "git checkout upstream/main".split()
+    resp = subprocess.run(cmd, stdout=SUBPROCESS_REDIRECT, stderr=SUBPROCESS_REDIRECT)
     if resp.returncode != 0:
-        print("Failed to set upstream/main")
+        print("Failed to switch to upstream/main branch")
         sys.exit(1)
-
 
     branch_name = 'update-hive-{}'.format(new_version)
     pr_title = "Update Hive community operator to {}".format(new_version)
     print("Starting {}".format(pr_title))
-
-    # Starting branch
-    cmd = "git checkout {}".format(COMMUNITY_OPERATOR_MAIN_BRANCH).split()
-    resp = subprocess.run(cmd, stdout=SUBPROCESS_REDIRECT, stderr=SUBPROCESS_REDIRECT)
-    if resp.returncode != 0:
-        print("Failed to switch to {} branch".format(COMMUNITY_OPERATOR_MAIN_BRANCH))
-        sys.exit(1)
 
     print("Create branch {}".format(branch_name))
     cmd = "git checkout -b {}".format(branch_name).split()
