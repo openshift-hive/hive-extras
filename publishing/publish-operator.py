@@ -11,8 +11,6 @@ import sys
 import tempfile
 import yaml
 
-GITHUB_USER = "dgoodwin"
-
 GITHUB_CLIENT_USERNAME = "redhat-openshift-ecosystem"
 GITHUB_CLIENT_REPONAME = "community-operators-prod"
 
@@ -28,6 +26,7 @@ SUBPROCESS_REDIRECT = subprocess.DEVNULL
 def get_params():
     parser = argparse.ArgumentParser(description='Publish new hive version to operator hub.')
     parser.add_argument('--new-version', help='New hive release (eg 1.0.14)', required=True)
+    parser.add_argument('--github-user', help='Users github username, if different than $USER', default=os.environ["USER"])
     parser.add_argument('--bundle-dir', help='Path to directory containing new operator bundle', required=True)
     parser.add_argument('--verbose', help='Show more details while running', action='store_true', default=False)
     parser.add_argument('--dry-run', help='Test run that skips pushing branches and submitting PRs', action='store_true', default=False)
@@ -45,10 +44,10 @@ def main():
     with tempfile.TemporaryDirectory(prefix="operatorhub-push") as work_dir:
 
         # redhat-openshift-ecosystem/community-operators-prod
-        open_pr(work_dir, "git@github.com:%s/community-operators-prod.git" % GITHUB_USER, "community-operators-prod", GITHUB_USER, params.bundle_dir, HIVE_SUB_DIR, params.new_version, params.dry_run)
+        open_pr(work_dir, "git@github.com:%s/community-operators-prod.git" % params.github_user, "community-operators-prod", params.github_user, params.bundle_dir, HIVE_SUB_DIR, params.new_version, params.dry_run)
 
         # k8s-operatorhub/community-operators
-        open_pr(work_dir, "git@github.com:%s/community-operators.git" % GITHUB_USER, "community-operators", GITHUB_USER, params.bundle_dir, HIVE_SUB_DIR, params.new_version, params.dry_run)
+        open_pr(work_dir, "git@github.com:%s/community-operators.git" % params.github_user, "community-operators", params.github_user, params.bundle_dir, HIVE_SUB_DIR, params.new_version, params.dry_run)
 
 
 def open_pr(work_dir, fork_repo, dir_name, gh_username, bundle_source_dir, bundle_target_dir_name, new_version, dry_run):
@@ -70,9 +69,9 @@ def open_pr(work_dir, fork_repo, dir_name, gh_username, bundle_source_dir, bundl
     os.chdir(repo_full_path)
 
     # get the local user's github username
-    # cmd = "git ls-remote --get-url origin".split()
-    # resp = subprocess.run(cmd, capture_output=True)
-    # GITHUB_USER, _ = get_github_repo_data(resp.stdout.decode('utf-8'))
+    cmd = "git ls-remote --get-url origin".split()
+    resp = subprocess.run(cmd, capture_output=True)
+    github_user, _ = get_github_repo_data(resp.stdout.decode('utf-8'))
 
     cmd = "git remote add upstream git@github.com:redhat-openshift-ecosystem/community-operators-prod.git".split()
     resp = subprocess.run(cmd, stdout=SUBPROCESS_REDIRECT)
