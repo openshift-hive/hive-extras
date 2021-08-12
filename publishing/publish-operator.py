@@ -32,10 +32,11 @@ SUBPROCESS_REDIRECT = subprocess.DEVNULL
 def get_params():
     parser = argparse.ArgumentParser(description='Publish new hive version to operator hub.')
     parser.add_argument('--new-version', help='New hive release (eg 1.0.14)', required=True)
-    parser.add_argument('--github-user', help='Users github username, if different than $USER', default=os.environ["USER"])
+    parser.add_argument('--github-user', help="User's github username, if different than $USER", default=os.environ["USER"])
     parser.add_argument('--bundle-dir', help='Path to directory containing new operator bundle', required=True)
     parser.add_argument('--verbose', help='Show more details while running', action='store_true', default=False)
     parser.add_argument('--dry-run', help='Test run that skips pushing branches and submitting PRs', action='store_true', default=False)
+    parser.add_argument('--update-channel', action='append', help='Update channel in OLM package to new version', required=True)
 
     args = parser.parse_args()
 
@@ -53,16 +54,16 @@ def main():
         open_pr(work_dir,
                 "git@github.com:%s/community-operators-prod.git" % params.github_user,
                 "git@github.com:redhat-openshift-ecosystem/community-operators-prod.git",
-                params.github_user, params.bundle_dir, params.new_version, params.dry_run)
+                params.github_user, params.bundle_dir, params.new_version, params.update_channel, params.dry_run)
 
         # k8s-operatorhub/community-operators
         open_pr(work_dir,
                 "git@github.com:%s/community-operators.git" % params.github_user,
                 "git@github.com:k8s-operatorhub/community-operators.git",
-                params.github_user, params.bundle_dir, params.new_version, params.dry_run)
+                params.github_user, params.bundle_dir, params.new_version, params.update_channel, params.dry_run)
 
 
-def open_pr(work_dir, fork_repo, upstream_repo, gh_username, bundle_source_dir, new_version, dry_run):
+def open_pr(work_dir, fork_repo, upstream_repo, gh_username, bundle_source_dir, new_version, update_channels, dry_run):
 
     dir_name = fork_repo.split('/')[1][:-4]
 
@@ -132,7 +133,7 @@ def open_pr(work_dir, fork_repo, upstream_repo, gh_username, bundle_source_dir, 
 
     found = False
     for channel in bundle["channels"]:
-        if channel["name"] == "alpha":
+        if channel["name"] in update_channels:
             found = True
             channel["currentCSV"] = "hive-operator.v{}".format(new_version)
 
@@ -142,6 +143,10 @@ def open_pr(work_dir, fork_repo, upstream_repo, gh_username, bundle_source_dir, 
 
     with open(bundle_manifests_file, 'w') as outfile:
         yaml.dump(bundle, outfile, default_flow_style=False)
+    print("\nUpdated bundle package:\n\n")
+    cmd = ("cat %s" % bundle_manifests_file).split()
+    subprocess.run(cmd)
+    print()
 
     # commit files
     print("Adding file")
@@ -151,7 +156,10 @@ def open_pr(work_dir, fork_repo, upstream_repo, gh_username, bundle_source_dir, 
     print("Commiting {}".format(pr_title))
     cmd = 'git commit --signoff '.split()
     cmd.append('--message="{}"'.format(pr_title))
-    subprocess.run(cmd, stdout=SUBPROCESS_REDIRECT)
+    resp = subprocess.run(cmd, stdout=SUBPROCESS_REDIRECT)
+    if resp.returncode != 0:
+        print("Failed to commit")
+        sys.exit(1)
     print()
 
     if not dry_run:
