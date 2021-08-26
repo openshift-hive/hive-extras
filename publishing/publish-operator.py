@@ -37,7 +37,7 @@ def get_params():
     parser.add_argument('--verbose', help='Show more details while running', action='store_true', default=False)
     parser.add_argument('--dry-run', help='Test run that skips pushing branches and submitting PRs', action='store_true', default=False)
     parser.add_argument('--update-channel', action='append', help='Update channel in OLM package to new version', required=True)
-    parser.add_argument('--wip', help='Adds work in progress "[WIP]" to resulting PRs, must be removed before they can merge', action='store_true', default=False)
+    parser.add_argument('--hold', help='Adds a /hold comment in commit body to prevent the PR from merging (use "/hold cancel" to remove)', action='store_true', default=False)
 
     args = parser.parse_args()
 
@@ -55,16 +55,16 @@ def main():
         open_pr(work_dir,
                 "git@github.com:%s/community-operators-prod.git" % params.github_user,
                 "git@github.com:redhat-openshift-ecosystem/community-operators-prod.git",
-                params.github_user, params.bundle_dir, params.new_version, params.update_channel, params.wip, params.dry_run)
+                params.github_user, params.bundle_dir, params.new_version, params.update_channel, params.hold, params.dry_run)
 
         # k8s-operatorhub/community-operators
         open_pr(work_dir,
                 "git@github.com:%s/community-operators.git" % params.github_user,
                 "git@github.com:k8s-operatorhub/community-operators.git",
-                params.github_user, params.bundle_dir, params.new_version, params.update_channel, params.wip, params.dry_run)
+                params.github_user, params.bundle_dir, params.new_version, params.update_channel, params.hold, params.dry_run)
 
 
-def open_pr(work_dir, fork_repo, upstream_repo, gh_username, bundle_source_dir, new_version, update_channels, wip, dry_run):
+def open_pr(work_dir, fork_repo, upstream_repo, gh_username, bundle_source_dir, new_version, update_channels, hold, dry_run):
 
     dir_name = fork_repo.split('/')[1][:-4]
 
@@ -110,8 +110,6 @@ def open_pr(work_dir, fork_repo, upstream_repo, gh_username, bundle_source_dir, 
 
     branch_name = 'update-hive-{}'.format(new_version)
     pr_title = "Update Hive community operator to {}".format(new_version)
-    if wip:
-        pr_title = "[WIP] %s" % pr_title
     print("Starting {}".format(pr_title))
 
     print("Create branch {}".format(branch_name))
@@ -180,7 +178,11 @@ def open_pr(work_dir, fork_repo, upstream_repo, gh_username, bundle_source_dir, 
         from_branch = "{}:{}".format(gh_username, branch_name)
         to_branch = "main"
 
-        resp = client.create_pr(from_branch, to_branch, pr_title)
+        body = pr_title
+        if hold:
+            body = "%s\n\n/hold" % body
+
+        resp = client.create_pr(from_branch, to_branch, pr_title, body)
         if resp.status_code != 201: #201 == Created
             print(resp.text)
             sys.exit(1)

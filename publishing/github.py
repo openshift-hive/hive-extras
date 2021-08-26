@@ -23,7 +23,7 @@ class GitHubClient:
             'Authorization': 'token ' + gh_token,
             'Accept': 'application/vnd.github.v3+json',
         }
-    
+
     def _create_request(self, rest_path):
         return 'https://api.github.com' + rest_path
 
@@ -51,11 +51,12 @@ class GitHubClient:
 
         return requests.post(req, headers=self.headers, data=json.dumps(data))
 
-    def create_pr(self, pr_from, pr_to, pr_title):
+    def create_pr(self, pr_from, pr_to, pr_title, body):
         data = {
             "head": pr_from,
             "base": pr_to,
             "title": pr_title,
+            "body": body,
         }
 
         create_pr_rest_path = '/repos/{}/{}/pulls'.format(self.user, self.repo)
