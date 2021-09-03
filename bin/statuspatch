@@ -1,0 +1,99 @@
+#!/usr/bin/bash
+
+CMD=${0##*/}
+EDITOR=${EDITOR:-/usr/bin/vi}
+
+RC=0
+
+usage() {
+    cat <<EOF
+Usage: $CMD {oc args to get a single object}
+
+Opens an editor like "oc edit" would. But instead of your .status edits
+being ignored, they are applied (and any .spec edits are ignored).
+
+Example:
+  $CMD -n mynamespace clusterdeployment foo
+EOF
+    exit -1
+}
+
+cleanup() {
+    # Terminate proxy, if any
+    kill %1 2>/dev/null
+    # Clean up the unix socket, if it exists
+    [[ -S "$socket" ]] && rm -f $socket
+    # Clean up the patchfile, unless we failed (and it's nonempty)
+    if [[ $RC -ne 0 ]] && [[ -s "$patchfile" ]]; then
+        echo "Saving patchfile $patchfile"
+    else
+        echo "Cleaning up $patchfile"
+        rm -f $patchfile
+    fi
+}
+trap "cleanup" EXIT
+
+getfield() {
+    local path="$1"
+    local res=$(jq -r "$path" $patchfile)
+    RC=$?
+    if [[ $RC -ne 0 ]] || [[ -z "$res" ]]; then
+        echo "Couldn't get '$path' from retrieved object! What's in $patchfile?"
+        exit 2
+    fi
+    echo $res
+}
+
+# Print usage if no args, or if any arg looks like -h/--help
+[[ $# -eq 0 ]] && usage
+for arg in "$@"; do
+  [[ "$arg" == "-h"* ]] || [[ "$arg" == "--h"* ]] && usage
+done
+
+patchfile=$(mktemp /tmp/$CMD.XXXX)
+
+oc get "$@" -o json > $patchfile || RC=$?
+[[ $RC -eq 0 ]] || exit 1
+
+kind=$(getfield .kind)
+
+# Only support single objects
+if [[ $kind == "List" ]]; then
+    echo "Can't patch a List! Please refine your command to retrieve a single object."
+    exit 3
+fi
+
+# TODO: This will *usually* work, but the right thing would be to go
+# discover the proper API path.
+kind=$(echo "$kind" | tr '[:upper:]' '[:lower:]')s
+
+apiVersion=$(getfield .apiVersion)
+name=$(getfield .metadata.name)
+namespace=$(getfield .metadata.namespace)
+# Construct the sub-path depending on whether it's a namespaced resource
+if [[ $namespace == "null" ]]; then
+    subpath=$kind/$name
+else
+    subpath=namespaces/$namespace/$kind/$name
+fi
+
+# Allow user to edit
+# TODO: If $EDITOR launches in the background...
+$EDITOR $patchfile
+
+# Proxy through a unix socket so we don't have to dork with ports
+socket=$patchfile.sock
+python -c "import os, socket as s; s.socket(s.AF_UNIX).bind('$socket')"
+oc proxy -u $socket &
+# TODO: Better way to wait for the socket to spin up
+sleep 1
+
+# Do the patch
+curl -k -s -X PATCH \
+    -H "Accept: application/json, */*" \
+    -H "Content-Type: application/merge-patch+json" \
+    --unix-socket $socket \
+    http://localhost/apis/$apiVersion/$subpath/status \
+    --data @$patchfile || RC=$?
+
+# Let the trap do the cleanup.
