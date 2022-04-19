@@ -46,3 +46,15 @@ To install a playbook, you can simply execute its yaml file, e.g.:
   The JSON payload will depend on the function you're running.
   (If testing, you may wish to configure the `"recipients"` list so the emails only come to you.)
 - Punch the orange "Test" button.
+
+To view the configuration for a lambda function go to the [Amazon EventBridge Rules](https://console.aws.amazon.com/events/home?region=us-east-1#/eventbus/default/rules) and navigate to "Targets" -> "View" for a rule.
+
+Example Test configuration,
+```json
+ {
+   "regions": ["us-east-1", "us-east-2"],
+   "emailregion": "us-east-1",
+   "recipients": ["<your email address>"],
+   "fromemail": "<from email address>"
+ }
+```
