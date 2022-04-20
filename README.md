@@ -43,6 +43,34 @@ To install a playbook, you can simply execute its yaml file, e.g.:
   - [periodicHiveLambdaFunction (daily running instance report)](https://console.aws.amazon.com/lambda/home?region=us-east-1#/functions/periodicHiveLambdaFunction?tab=code)
   - [ciMonitorLambdaFunction (detects leaks from CI jobs)](https://console.aws.amazon.com/lambda/home?region=us-east-1#/functions/ciMonitorLambdaFunction?tab=code)
 - Create or load a Test configuration using the drop-down next to the orange "Test" button.
-  The JSON payload will depend on the function you're running.
-  (If testing, you may wish to configure the `"recipients"` list so the emails only come to you.)
+  The JSON payload might vary depending on the function you're running.
+  However, at the time of this writing, both jobs take the same configuration.
+  Here is a sample (configure the `"recipients"` list so the emails only come to you):
+  ```json
+  {
+    "regions": [
+      "us-east-1",
+      "us-east-2"
+    ],
+    "recipients": [
+      "me@redhat.com"
+    ],
+    "fromemail": "openshift-hive-team@redhat.com",
+    "emailregion": "us-east-1"
+  }
+  ```
 - Punch the orange "Test" button.
+
+#### Debugging
+
+It's not intuitive (at least to me) to find the various pieces of these jobs and schedules in the AWS console.
+Hopefully this helps.
+First, [log into the Hive team's AWS console](https://openshift-cluster-operator.signin.aws.amazon.com/console).
+Then these links should work:
+
+|  | Running Instances | CI Monitor | Notes |
+|-|-|-|-|
+| **job code** | [link](https://us-east-1.console.aws.amazon.com/lambda/home?region=us-east-1#/functions/periodicHiveLambdaFunction?tab=code) | [link](https://us-east-1.console.aws.amazon.com/lambda/home?region=us-east-1#/functions/ciMonitorLambdaFunction?tab=code) | This should match the respective python script in [monitoring/aws/lambda/](monitoring/aws/lambda/) |
+| **test pane** | [link](https://us-east-1.console.aws.amazon.com/lambda/home?region=us-east-1#/functions/periodicHiveLambdaFunction?tab=testing) | [link](https://us-east-1.console.aws.amazon.com/lambda/home?region=us-east-1#/functions/ciMonitorLambdaFunction?tab=testing) | See [above](#live-testing) for how to use this |
+| **schedule** | [link](https://us-east-1.console.aws.amazon.com/events/home?region=us-east-1#/eventbus/default/rules/PeriodicHiveLambdaSchedule) | [link](https://us-east-1.console.aws.amazon.com/events/home?region=us-east-1#/eventbus/default/rules/ciMonitorLambdaSchedule) | Use the "Event schedule" tab to see the cron spec and upcoming runs<br>Use the "Targets" tab and click `Constant` under the `Input` column to see the current configuration<br>**Note:** We've had problems before when a second "Target" with no "Constant" configuration got mysteriously created. Deleting the schedule and rerunning the ansible uploader resolved it. |
+| **logs** | [link](https://us-east-1.console.aws.amazon.com/cloudwatch/home?region=us-east-1#logsV2:log-groups/log-group/$252Faws$252Flambda$252FperiodicHiveLambdaFunction) | [link](https://us-east-1.console.aws.amazon.com/cloudwatch/home?region=us-east-1#logsV2:log-groups/log-group/$252Faws$252Flambda$252FciMonitorLambdaFunction) | |
