@@ -9,7 +9,9 @@ NOW = datetime.datetime.utcnow()
 
 # Our CI job is configured to use cluster names of the form:
 # hiveci-$timestamp-$pull
-NAME_FILTER = dict(Name='tag:Name', Values=['hiveci-*'])
+# and the e2e-pool test creates an additional cluster named:
+# cdcci-$timestamp-$pull
+NAME_FILTER = dict(Name='tag:Name', Values=['hiveci-*', 'cdcci-*'])
 # Where $timestamp is the number of seconds since the epoch, in hex; and
 # $pull is the PR number, also in hex.
 def parse_vpc(vpc):
