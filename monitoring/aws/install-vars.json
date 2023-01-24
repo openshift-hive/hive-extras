@@ -1,12 +1,6 @@
 {
     "recipients": [
-        "abutcher",
-        "efried",
-        "jstuever",
-        "lleshchi",
-        "mold",
-        "mworthin",
-        "sumehta"
+        "openshift-hive-team"
     ],
     "fromemail": "openshift-hive-team",
     "email_domain": "redhat.com",
