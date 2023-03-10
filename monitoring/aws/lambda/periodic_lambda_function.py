@@ -5,6 +5,9 @@ import json
 import io
 
 def lambda_handler(event, context):
+    # Inject default configuration
+    with open('/opt/install-vars.json') as f:
+        event.update(json.load(f))
 
     print(event)
     running_instances = {}
@@ -34,7 +37,7 @@ def lambda_handler(event, context):
 
     instances_formatted = build_instance_email_text(running_instances)
 
-    send_email(event["recipients"], event["fromemail"], instances_formatted, event["emailregion"])
+    send_email(event["recipients"], event["fromemail"], event["email_domain"], instances_formatted, event["default_region"])
 
     return {
         'statusCode': 200,
@@ -56,13 +59,14 @@ def build_instance_email_text(instances):
         
     return buf.getvalue()
 
-def send_email(recipients, fromemail, email_body, region):
+def send_email(recipients, fromemail, domain, email_body, region):
     sesclient = boto3.client('ses', region)
 
+    to_addresses = list(map(lambda s: '@'.join((s, domain)), recipients))
     response = sesclient.send_email(
-        Source=fromemail,
+        Source='@'.join((fromemail, domain)),
         Destination={
-            'ToAddresses': recipients,
+            'ToAddresses': to_addresses,
         },
         Message={
             'Subject': {'Data': 'Hive running instance report'},

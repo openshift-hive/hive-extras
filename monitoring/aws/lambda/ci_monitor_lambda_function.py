@@ -41,8 +41,11 @@ def get_tag_value(o, key=None):
 
 
 def lambda_handler(event, context):
+    # Inject default configuration
+    with open('/opt/install-vars.json') as f:
+        event.update(json.load(f))
 
-    print(event)
+    print("Event: " + str(event))
     debug = bool(event.get('debug'))
     vpcs = {}
 
@@ -61,7 +64,7 @@ def lambda_handler(event, context):
 
     # Skip the email if no leaks detected; unless debugging
     if count or debug:
-        send_email(event["recipients"], event["fromemail"], formatted, event["emailregion"])
+        send_email(event["recipients"], event["fromemail"], event["email_domain"], formatted, event.get("emailregion", event["default_region"]))
 
     return {
         'statusCode': 200,
@@ -102,13 +105,14 @@ def build_report_text(vpcs_by_region, debug=False):
         
     return buf.getvalue(), count
 
-def send_email(recipients, fromemail, email_body, region):
+def send_email(recipients, fromemail, domain, email_body, region):
     sesclient = boto3.client('ses', region)
 
+    to_addresses = list(map(lambda s: '@'.join((s, domain)), recipients))
     response = sesclient.send_email(
-        Source=fromemail,
+        Source='@'.join((fromemail, domain)),
         Destination={
-            'ToAddresses': recipients,
+            'ToAddresses': to_addresses,
         },
         Message={
             'Subject': {'Data': 'Hive CI leak report'},
