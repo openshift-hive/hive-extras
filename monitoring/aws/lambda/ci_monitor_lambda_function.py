@@ -71,6 +71,7 @@ def lambda_handler(event, context):
 def build_report_text(vpcs_by_region, debug=False):
     buf = io.StringIO()
     count = 0
+    taglist = []
 
     for region, vpcs in vpcs_by_region.items():
         if isinstance(vpcs, Exception):
@@ -96,7 +97,9 @@ def build_report_text(vpcs_by_region, debug=False):
                 # NOTE: This won't dtrt for prow rehearsals :)
                 buf.write(f"    PR: https://github.com/openshift/hive/pull/{parsed['pr']}\n")
                 # You'll need to be logged into the right account for this to work
-                buf.write(f"    Cleanup (if you're lucky): hiveutil aws-tag-deprovision {parsed['owned']}\n")
+                buf.write(f"    Cleanup: hiveutil aws-tag-deprovision {parsed['owned']}\n")
+                taglist.append(parsed['owned'])
+        buf.write(f"\n\nfor tag in {' '.join(taglist)}; do hiveutil aws-tag-deprovision $tag; done")
 
         buf.write("\n")
         
