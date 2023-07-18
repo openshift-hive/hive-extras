@@ -13,14 +13,16 @@ class Segment:
         self.dhcpstart = IPAddress(dhcpstart)
 
     def available(self):
+        """Generator for IP address strings for available (unreserved) addresses in this segment."""
         for ip in self:
             if ip not in RESERVED:
                 yield ip
 
-    def reserved(self):
+    def reserved_str(self):
+        """Generator for 'IP\tDNSNAME' strings for reserved addresses in this segment."""
         for ip in self:
             if ip in RESERVED:
-                yield ip
+                yield f"{ip}\t{RESERVED[ip]}"
 
     def __iter__(self):
         for ip in iter_iprange(self.network.first+3, self.dhcpstart-1):
@@ -53,7 +55,7 @@ HOSTED_ZONE_ID = 'Z0355267XBPSF2ILEW5O'
 VMC_BASE_DOMAIN = "vmc.devcluster.openshift.com"
 
 # IPs that already have records associated with them
-RESERVED = set()
+RESERVED = dict()
 
 # Singleton AWS Route53 client
 R53CLIENT = None
@@ -105,7 +107,7 @@ def discover_reserved_ips():
             for rec in recs:
                 val = rec.get("Value")
                 if val:
-                    RESERVED.add(val)
+                    RESERVED[val] = rset["Name"]
                     debug("Reserved: %s" % val)
         if not res['IsTruncated']:
             break
@@ -227,11 +229,11 @@ if __name__ == "__main__":
             print("\n".join(iteravail))
     elif ARGS.subcommand == "reserved":
         if ARGS.network:
-            print("\n".join(SEGMENTS_BY_NAME[ARGS.network].reserved()))
+            print("\n".join(SEGMENTS_BY_NAME[ARGS.network].reserved_str()))
         else:
             for name, segment in SEGMENTS_BY_NAME.items():
                 print("\n%s:" % name)
-                print("\n".join(segment.reserved()))
+                print("\n".join(segment.reserved_str()))
     elif ARGS.subcommand == "install-config":
         if ARGS.network:
             networks = [ARGS.network]
