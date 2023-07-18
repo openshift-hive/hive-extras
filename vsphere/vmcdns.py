@@ -252,8 +252,7 @@ if __name__ == "__main__":
             if ARGS.reserve:
                 print("\nYour IP addresses have been reserved in the AWS hosted zone!", file=sys.stderr)
             else:
-                print("\nDon't forget to reserve your IPs!", file=sys.stderr)
-                print(f"\tvmcdns.sh reserve --hosted-zone-id {HOSTED_ZONE_ID} --base-domain {VMC_BASE_DOMAIN} --api-vip {avail[0]} --ingress-vip {avail[1]} --name YOUR_NAME_HERE", file=sys.stderr)
+                print("\nYour IPs are not reserved! You may wish to run this command again with '--reserve your-cluster-name'", file=sys.stderr)
             sys.exit(0)
         print("Could not find any networks with two available IPs!", file=sys.stderr)
     elif ARGS.subcommand == "release":
