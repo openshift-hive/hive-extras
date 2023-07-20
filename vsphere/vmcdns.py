@@ -36,18 +36,20 @@ class Segment:
 SEGMENTS_BY_NAME = {
     "devqe-segment-221": Segment("192.168.221.0/24", "192.168.221.128"),
     "devqe-segment-222": Segment("192.168.222.0/24", "192.168.222.50"),
-    "devqe-segment-223": Segment("192.168.223.0/24", "192.168.223.50"),
-    "devqe-segment-224": Segment("192.168.224.0/24", "192.168.224.50"),
-    "devqe-segment-225": Segment("192.168.225.0/24", "192.168.225.50"),
-    "devqe-segment-226": Segment("192.168.226.0/24", "192.168.226.50"),
-    "devqe-segment-227": Segment("192.168.227.0/24", "192.168.227.50"),
-    "devqe-segment-228": Segment("192.168.228.0/24", "192.168.228.50"),
+    # 223-228 are used by prow CI, and subject to automatic pruning
+    # "devqe-segment-223": Segment("192.168.223.0/24", "192.168.223.50"),
+    # "devqe-segment-224": Segment("192.168.224.0/24", "192.168.224.50"),
+    # "devqe-segment-225": Segment("192.168.225.0/24", "192.168.225.50"),
+    # "devqe-segment-226": Segment("192.168.226.0/24", "192.168.226.50"),
+    # "devqe-segment-227": Segment("192.168.227.0/24", "192.168.227.50"),
+    # "devqe-segment-228": Segment("192.168.228.0/24", "192.168.228.50"),
     "devqe-segment-229-disconnected": Segment("192.168.229.0/24", "192.168.229.128"),
-    "devqe-segment-230-disconnected": Segment("192.168.230.0/24", "192.168.230.128"),
-    "devqe-segment-231-disconnected": Segment("192.168.231.0/24", "192.168.231.128"),
-    "devqe-segment-232-disconnected": Segment("192.168.232.0/24", "192.168.232.128"),
-    "devqe-segment-233-disconnected": Segment("192.168.233.0/24", "192.168.233.128"),
-    "devqe-segment-234-disconnected": Segment("192.168.234.0/24", "192.168.234.128"),
+    # 230-234 are used by prow CI, and subject to automatic pruning
+    # "devqe-segment-230-disconnected": Segment("192.168.230.0/24", "192.168.230.128"),
+    # "devqe-segment-231-disconnected": Segment("192.168.231.0/24", "192.168.231.128"),
+    # "devqe-segment-232-disconnected": Segment("192.168.232.0/24", "192.168.232.128"),
+    # "devqe-segment-233-disconnected": Segment("192.168.233.0/24", "192.168.233.128"),
+    # "devqe-segment-234-disconnected": Segment("192.168.234.0/24", "192.168.234.128"),
 }
 
 
