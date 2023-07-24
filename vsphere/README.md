@@ -184,7 +184,7 @@ sshKey: |
 
 Your IP addresses have been reserved in the AWS hosted zone!
 ```
-**NOTE:** Omitting the `--reserved` argument will still generate a template with IPs in it, but will not reserve those IPs for you!
+**NOTE:** Omitting the `--reserve` argument will still generate a template with IPs in it, but will not reserve those IPs for you!
 
 #### Profit
 
