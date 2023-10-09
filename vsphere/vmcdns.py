@@ -34,7 +34,7 @@ class Segment:
 
 # Source: https://docs.google.com/document/d/1cnzKMT-8TGcq5ox_AajGpT-VRwMuYTKIZI-fPNrR8Xg/edit#heading=h.pt8d46lus3jk
 SEGMENTS_BY_NAME = {
-    "devqe-segment-221": Segment("192.168.221.0/24", "192.168.221.128"),
+    # "devqe-segment-221": Segment("192.168.221.0/24", "192.168.221.128"),
     "devqe-segment-222": Segment("192.168.222.0/24", "192.168.222.50"),
     # 223-228 are used by prow CI, and subject to automatic pruning
     # "devqe-segment-223": Segment("192.168.223.0/24", "192.168.223.50"),
