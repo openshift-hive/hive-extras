@@ -5,6 +5,7 @@ import boto3
 import botocore
 from netaddr import *
 import sys
+import json
 
 
 class Segment:
@@ -86,9 +87,14 @@ def change_json(action, route, base_name, ip):
 
 
 def debug(*a, **k):
-    if ARGS.debug:
-        print(*a, file=sys.stderr, **k)
-
+    try:
+        if ARGS.debug:
+            print(*a, file=sys.stderr, **k)
+    except NameError as e:
+        if e.args[0] == "name 'ARGS' is not defined":
+            print(*a, file=sys.stderr, **k)
+        else:
+            raise
 
 def discover_reserved_ips():
     debug("Querying Hosted Zone %s" % HOSTED_ZONE_ID)
@@ -123,10 +129,23 @@ def get_route53_client():
         R53CLIENT = boto3.client("route53")
     return R53CLIENT
 
-
-def print_install_config(vips, segname):
-    cluster_name = ARGS.reserve or "YOUR_NAME_HERE"
-    print(f'''
+class Creds:
+    def __init__(self):
+        self.username = "YOUR_USERNAME_HERE"
+        self.password = "YOUR_PASSWORD_HERE"
+        self.pull_secret = "YOUR_PULL_SECRET_HERE"
+        self.ssh_key = "YOUR_SSH_PUBLIC_KEY_HERE"
+    def set_pull_secret(self, pull_secret_file):
+        # TODO: set pull secret
+        with open(pull_secret_file, 'r') as file:
+            self.pull_secret = file.read()
+    def set_ssh_key(self, ssh_key_file):
+        with open(ssh_key_file, 'r') as file:
+            self.ssh_key = file.read()
+    
+def get_install_config(vips, segname, cluster_name=None, creds=Creds()):
+    cluster_name = cluster_name or "YOUR_NAME_HERE"
+    return f'''
 apiVersion: v1
 baseDomain: {VMC_BASE_DOMAIN}
 metadata:
@@ -139,8 +158,8 @@ platform:
     defaultDatastore: vsanDatastore
     ingressVIP: {vips[1]}
     network: {segname}
-    username: YOUR_USERNAME_HERE
-    password: YOUR_PASSWORD_HERE
+    username: {creds.username}
+    password: {creds.password}
     vCenter: vcenter.devqe.ibmc.devcluster.openshift.com
     # ?
     # resourcePool: /DEVQEdatacenter/host/DEVQEcluster/Resources/hive01
@@ -148,36 +167,38 @@ networking:
   machineNetwork:
   - cidr: {SEGMENTS_BY_NAME[segname].network}
 pullSecret: |
-  YOUR_PULL_SECRET_HERE
+  {creds.pull_secret}
 sshKey: |
-  YOUR_SSH_PUBLIC_KEY_HERE
-''')
+  {creds.ssh_key}
+'''
 
+def print_install_config(vips, segname, cluster_name=None, creds=Creds()):
+    print(get_install_config(vips, segname, cluster_name, creds))
 
-def release_ips():
-    print(f"Releasing IPs for API ({ARGS.api_vip}) and ingress ({ARGS.ingress_vip})...", file=sys.stderr)
+def release_ips(api_vip, ingress_vip, cluster_name):
+    print(f"Releasing IPs for API ({api_vip}) and ingress ({ingress_vip})...", file=sys.stderr)
     r53client = get_route53_client()
     r53client.change_resource_record_sets(
         HostedZoneId=HOSTED_ZONE_ID,
         ChangeBatch={
-        "Comment": f"DELETE DNS records for cluster '{ARGS.cluster_name}' in domain '{VMC_BASE_DOMAIN}'.",
+        "Comment": f"DELETE DNS records for cluster '{cluster_name}' in domain '{VMC_BASE_DOMAIN}'.",
         "Changes": [
-            change_json("DELETE", "API", ARGS.cluster_name, ARGS.api_vip),
-            change_json("DELETE", "INGRESS", ARGS.cluster_name, ARGS.ingress_vip),
+            change_json("DELETE", "API", cluster_name, api_vip),
+            change_json("DELETE", "INGRESS", cluster_name, ingress_vip),
         ],
     })
 
 
-def reserve_ips(two_ips):
+def reserve_ips(two_ips, cluster_name):
     print(f"Reserving IPs for API ({two_ips[0]}) and ingress ({two_ips[1]})...", file=sys.stderr)
     r53client = get_route53_client()
     r53client.change_resource_record_sets(
         HostedZoneId=HOSTED_ZONE_ID,
         ChangeBatch={
-        "Comment": f"UPSERT DNS records for cluster '{ARGS.reserve}' in domain '{VMC_BASE_DOMAIN}'.",
+        "Comment": f"UPSERT DNS records for cluster '{cluster_name}' in domain '{VMC_BASE_DOMAIN}'.",
         "Changes": [
-            change_json("UPSERT", "API", ARGS.reserve, two_ips[0]),
-            change_json("UPSERT", "INGRESS", ARGS.reserve, two_ips[1]),
+            change_json("UPSERT", "API", cluster_name, two_ips[0]),
+            change_json("UPSERT", "INGRESS", cluster_name, two_ips[1]),
         ],
     })
 
@@ -211,7 +232,6 @@ parser_release = subparsers.add_parser("release", help="Release IP addresses.")
 parser_release.add_argument("--api-vip", required=True, help="The IP address for api.")
 parser_release.add_argument("--ingress-vip", required=True, help="The IP address for *.apps.")
 parser_release.add_argument("--cluster-name", required=True, help=f"Base name of the cluster currently owning the IPs (in domain '{VMC_BASE_DOMAIN}').")
-
 
 if __name__ == "__main__":
     ARGS = PARSER.parse_args()
@@ -249,8 +269,9 @@ if __name__ == "__main__":
                 debug("Skipping segment %s: it doesn't have two available IPs")
                 continue
             if ARGS.reserve:
-                reserve_ips(avail[:2])
-            print_install_config(avail[:2], segname)
+                reserve_ips(avail[:2], ARGS.reserve)
+                print(f"Need to reserve {avail[:2]} for {ARGS.reserve}")
+            print_install_config(avail[:2], segname, ARGS.reserve if ARGS.reserve else None)
             if ARGS.reserve:
                 print("\nYour IP addresses have been reserved in the AWS hosted zone!", file=sys.stderr)
             else:
