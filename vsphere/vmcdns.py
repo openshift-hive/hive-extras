@@ -5,7 +5,7 @@ import boto3
 import botocore
 from netaddr import *
 import sys
-import json
+import re
 
 
 class Segment:
@@ -129,6 +129,9 @@ def get_route53_client():
         R53CLIENT = boto3.client("route53")
     return R53CLIENT
 
+def indent(s, prefix):
+    return re.sub('^', prefix, s, flags=re.M)
+
 class Creds:
     def __init__(self):
         self.username = "YOUR_USERNAME_HERE"
@@ -152,24 +155,34 @@ metadata:
   name: {cluster_name}
 platform:
   vsphere:
-    apiVIP: {vips[0]}
-    cluster: DEVQEcluster
-    datacenter: DEVQEdatacenter
-    defaultDatastore: vsanDatastore
-    ingressVIP: {vips[1]}
-    network: {segname}
-    username: {creds.username}
-    password: {creds.password}
-    vCenter: vcenter.devqe.ibmc.devcluster.openshift.com
-    # ?
-    # resourcePool: /DEVQEdatacenter/host/DEVQEcluster/Resources/hive01
+    apiVIPs:
+    - {vips[0]}
+    ingressVIPs:
+    - {vips[1]}
+    vcenters:
+    - server: vcenter-2.devqe.ibmc.devcluster.openshift.com
+      user: {creds.username}
+      password: {creds.password}
+      datacenters:
+      - DEVQEdatacenter-2
+    failureDomains:
+    - name: fd1
+      server: vcenter-2.devqe.ibmc.devcluster.openshift.com
+      topology:
+        computeCluster: /DEVQEdatacenter-2/host/DEVQEcluster-2
+        datacenter: DEVQEdatacenter-2
+        datastore: /DEVQEdatacenter-2/datastore/vsanDatastore
+        networks:
+        - {segname}
+      zone: us-east
+      region: us-east-1a
 networking:
   machineNetwork:
   - cidr: {SEGMENTS_BY_NAME[segname].network}
 pullSecret: |
-  {creds.pull_secret}
+{indent(creds.pull_secret, '  ')}
 sshKey: |
-  {creds.ssh_key}
+{indent(creds.ssh_key, '  ')}
 '''
 
 def print_install_config(vips, segname, cluster_name=None, creds=Creds()):
@@ -279,4 +292,4 @@ if __name__ == "__main__":
             sys.exit(0)
         print("Could not find any networks with two available IPs!", file=sys.stderr)
     elif ARGS.subcommand == "release":
-        release_ips()
+        release_ips(ARGS.api_vip, ARGS.ingress_vip, ARGS.cluster_name)

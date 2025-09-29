@@ -53,6 +53,8 @@ def build_parser():
     destroy = subparsers.add_parser("cleanup-cluster", help="Destroy and existing cluster and release its IPs.")
     destroy.add_argument("cluster_name", type=str, metavar="CLUSTER_NAME", help="The name of the cluster to destroy.")
     destroy.add_argument("--dir", metavar="DIR", default=os.getcwd(), help="The assets directory laid down by the installation. Defaults to current working directory.")
+    # TODO(efried): Make IPs optional (user's responsibility to clean them up as desired) and/or
+    # discoverable based on cluster name so I don't have to enter them to get them cleaned up.
     destroy.add_argument("--api-vip", required=True, help="The IP address to release for api.")
     destroy.add_argument("--ingress-vip", required=True, help="The IP address to release for *.apps.")
 
@@ -118,7 +120,7 @@ def check_vips(api_vip, ingress_vip):
     segname = None
     pattern = r'^(\d+\.\d+\.\d+)\.'
     match = re.search(pattern, api_vip)
-    for _, segment in vmcdns.SEGMENTS_BY_NAME.items():
+    for segname, segment in vmcdns.SEGMENTS_BY_NAME.items():
         if match.group(0) in str(segment.network):
             return [api_vip, ingress_vip], segname
     else:
@@ -141,10 +143,16 @@ def save_install_config(ips, segname, cluster_name, creds):
         filename = os.path.join(ARGS.dir, "install-config.yaml")
     with open(filename, "w") as f:
         f.write(install_config)
+    # Annoyingly, installer consumes the install-config.yaml and deletes it. Make a backup for debug.
+    if ARGS.debug:
+        debug(f"Creating a copy of the install-config at {filename}.bak")
+        debug("WARNING: This contains your credentials! Manage appropriately.")
+        with open(f"{filename}.bak", "w") as f:
+            f.write(install_config)
 
 def create_cluster(dir):
     try:
-        subprocess.run(["openshift-install", "create", "cluster", "--dir", dir, "--log-level=info"], check=True)
+        subprocess.run(["openshift-install", "create", "cluster", "--dir", dir, f"--log-level={'debug' if ARGS.debug else 'info'}"], check=True)
     except subprocess.CalledProcessError as e:
         print("ERROR: {}".format(e), file=sys.stderr)
         print("Run the cleanup-cluster subcommand to clean up the cluster", file=sys.stderr)
@@ -152,7 +160,7 @@ def create_cluster(dir):
 
 def destroy_cluster(dir):
     try:
-        subprocess.run(["openshift-install", "destroy", "cluster", "--dir", dir, "--log-level=info"], check=True)
+        subprocess.run(["openshift-install", "destroy", "cluster", "--dir", dir, f"--log-level={'debug' if ARGS.debug else 'info'}"], check=True)
     except subprocess.CalledProcessError as e:
         print("ERROR: {}".format(e), file=sys.stderr)
         sys.exit(-1)
